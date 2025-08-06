@@ -24,6 +24,10 @@ const timeCapsuleSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    isLocked: {
+      type: Boolean,
+      default: false,
+    },
     participants: [
       {
         type: Schema.Types.ObjectId,
