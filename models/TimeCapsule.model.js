@@ -36,8 +36,7 @@ const timeCapsuleSchema = new Schema(
     ],
     items: [
       {
-        type: Schema.Types.ObjectId,
-        ref: "MemoryItem",
+        type: Object,
       },
     ],
   },

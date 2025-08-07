@@ -6,8 +6,9 @@ const { isAuthenticated } = require("../middleware/jwt.middleware");
 // Post/api/capsules/ - create a new capsule
 
 router.post("/capsules", isAuthenticated, (req, res) => {
-  const { title, description, unlockedDate, isPublic, participants, items } =
+  const { title, description, unlockedDate, isPublic, isLocked, participants, items } =
     req.body;
+
 
   TimeCapsule.create({
     title,
@@ -51,9 +52,8 @@ router.get("/capsules/:id", isAuthenticated, (req, res) => {
   TimeCapsule.findById(id)
     .populate("createdBy", "name")
     .populate("participants", "name")
-    .populate("items")
     .then((capsule) => {
-      if (!capsule || capsule.createdBy != userId) {
+      if (!capsule || capsule.createdBy._id != userId) {
         return res.status(404).json({ message: "Capsule not found" });
       }
       res.json(capsule);
