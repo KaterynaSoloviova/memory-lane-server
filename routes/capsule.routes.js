@@ -59,11 +59,7 @@ router.get("/capsules/:id", isAuthenticated, (req, res) => {
     .populate("createdBy", "name")
     .populate("participants", "name")
     .then((capsule) => {
-      if (
-        !capsule ||
-        (capsule.createdBy._id.toString() !== userId &&
-          !capsule.participants.includes(userId))
-      ) {
+      if (!capsule || !canSeeCapsule(capsule, userId)) {
         return res.status(404).json({ message: "Capsule not found" });
       }
       res.json(capsule);
@@ -87,30 +83,6 @@ router.get("/public", (req, res) => {
     .then((capsules) => res.json(capsules))
     .catch((error) => {
       console.error("Error fetching public capsules:", error);
-      res.status(500).json({ message: "Server error" });
-    });
-});
-
-// GET /public/:id
-router.get("/public/:id", (req, res) => {
-  const now = new Date();
-
-  TimeCapsule.findOne({
-    _id: req.params.id,
-    isPublic: true,
-    isLocked: true,
-    unlockedDate: { $lte: now },
-  })
-    .populate("createdBy", "username")
-    .populate("participants", "username")
-    .then((capsule) => {
-      if (!capsule) {
-        return res.status(404).json({ message: "Capsule not found" });
-      }
-      res.json(capsule);
-    })
-    .catch((error) => {
-      console.error("Error fetching public capsule:", error);
       res.status(500).json({ message: "Server error" });
     });
 });
@@ -195,5 +167,29 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
       res.status(500).json({ error: "Failed to delete capsule" });
     });
 });
+
+function isLocked(capsule) {
+  return capsule.isLocked && capsule.unlockedDate > new Date();
+}
+
+function isUnlocked(capsule) {
+  return capsule.isLocked && capsule.unlockedDate <= new Date();
+}
+
+function isDraft(capsule) {
+  return !capsule.isLocked;
+}
+
+function isOwner(capsule, userId) {
+  return capsule.createdBy._id.toString() === userId;
+}
+
+function canSeeCapsule(capsule, userId) {
+  return (
+    (isUnlocked(capsule) && capsule.participants.includes(userId)) ||
+    (isUnlocked(capsule) && capsule.isPublic) ||
+    (isDraft(capsule) && isOwner(capsule, userId)) 
+  );
+}
 
 module.exports = router;
