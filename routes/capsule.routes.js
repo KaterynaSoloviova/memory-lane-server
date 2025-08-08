@@ -6,9 +6,15 @@ const { isAuthenticated } = require("../middleware/jwt.middleware");
 // Post/api/capsules/ - create a new capsule
 
 router.post("/capsules", isAuthenticated, (req, res) => {
-  const { title, description, unlockedDate, isPublic, isLocked, participants, items } =
-    req.body;
-
+  const {
+    title,
+    description,
+    unlockedDate,
+    isPublic,
+    isLocked,
+    participants,
+    items,
+  } = req.body;
 
   TimeCapsule.create({
     title,
@@ -53,7 +59,11 @@ router.get("/capsules/:id", isAuthenticated, (req, res) => {
     .populate("createdBy", "name")
     .populate("participants", "name")
     .then((capsule) => {
-      if (!capsule || capsule.createdBy._id != userId) {
+      if (
+        !capsule ||
+        (capsule.createdBy._id.toString() !== userId &&
+          !capsule.participants.includes(userId))
+      ) {
         return res.status(404).json({ message: "Capsule not found" });
       }
       res.json(capsule);
@@ -64,12 +74,60 @@ router.get("/capsules/:id", isAuthenticated, (req, res) => {
     });
 });
 
+// GET all public unlocked capsules
+router.get("/public", (req, res) => {
+  const now = new Date();
+
+  TimeCapsule.find({
+    isPublic: true,
+    isLocked: true,
+    unlockedDate: { $lte: now },
+  })
+    .sort({ unlockedDate: -1 })
+    .then((capsules) => res.json(capsules))
+    .catch((error) => {
+      console.error("Error fetching public capsules:", error);
+      res.status(500).json({ message: "Server error" });
+    });
+});
+
+// GET /public/:id
+router.get("/public/:id", (req, res) => {
+  const now = new Date();
+
+  TimeCapsule.findOne({
+    _id: req.params.id,
+    isPublic: true,
+    isLocked: true,
+    unlockedDate: { $lte: now },
+  })
+    .populate("createdBy", "username")
+    .populate("participants", "username")
+    .then((capsule) => {
+      if (!capsule) {
+        return res.status(404).json({ message: "Capsule not found" });
+      }
+      res.json(capsule);
+    })
+    .catch((error) => {
+      console.error("Error fetching public capsule:", error);
+      res.status(500).json({ message: "Server error" });
+    });
+});
+
 // PUT /api/capsules/:id
 router.put("/capsules/:id", isAuthenticated, (req, res) => {
   const { id } = req.params;
   const userId = req.payload._id;
-  const { title, description, unlockedDate, isPublic, isLocked, participants, items } =
-    req.body;
+  const {
+    title,
+    description,
+    unlockedDate,
+    isPublic,
+    isLocked,
+    participants,
+    items,
+  } = req.body;
 
   TimeCapsule.findById(id)
     .then((capsule) => {
@@ -90,7 +148,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
           description,
           unlockedDate,
           isPublic,
-          isLocked, 
+          isLocked,
           participants,
           items,
         },
@@ -120,7 +178,9 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
       }
 
       if (capsule.createdBy.toString() !== userId) {
-        return res.status(403).json({ message: "You are not authorized to delete this capsule" });
+        return res
+          .status(403)
+          .json({ message: "You are not authorized to delete this capsule" });
       }
 
       return TimeCapsule.findByIdAndDelete(id);
@@ -135,6 +195,5 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
       res.status(500).json({ error: "Failed to delete capsule" });
     });
 });
-
 
 module.exports = router;
