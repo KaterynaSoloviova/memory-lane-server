@@ -7,6 +7,9 @@ const timeCapsuleSchema = new Schema(
       required: [true, "Title is required."],
       trim: true,
     },
+    image: {
+      type: String,
+    },
     description: {
       type: String,
       required: [true, "Description is required."],

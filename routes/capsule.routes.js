@@ -8,6 +8,7 @@ const { isAuthenticated } = require("../middleware/jwt.middleware");
 router.post("/capsules", isAuthenticated, (req, res) => {
   const {
     title,
+    image,
     description,
     unlockedDate,
     isPublic,
@@ -18,6 +19,7 @@ router.post("/capsules", isAuthenticated, (req, res) => {
 
   TimeCapsule.create({
     title,
+    image,
     description,
     unlockedDate,
     isPublic,
@@ -38,11 +40,10 @@ router.get("/capsules", isAuthenticated, (req, res) => {
   const userId = req.payload._id;
 
   TimeCapsule.find({
-    $or: [{ createdBy: userId }, { participants: userId }],
+    $or: [{ createdBy: userId }, { participants: userId }, {isPublic: true}],
   })
     .populate("createdBy", "username")
     .populate("participants", "username")
-    .populate("items")
     .then((capsules) => res.json(capsules))
     .catch((error) => {
       console.error("Error fetching capsules:", error);
@@ -93,6 +94,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
   const userId = req.payload._id;
   const {
     title,
+    image,
     description,
     unlockedDate,
     isPublic,
@@ -117,6 +119,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
         id,
         {
           title,
+          image,
           description,
           unlockedDate,
           isPublic,
