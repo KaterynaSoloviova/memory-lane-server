@@ -40,7 +40,7 @@ router.get("/capsules", isAuthenticated, (req, res) => {
   const userId = req.payload._id;
 
   TimeCapsule.find({
-    $or: [{ createdBy: userId }, { participants: userId }, {isPublic: true}],
+    $or: [{ createdBy: userId }, { participants: userId }, { isPublic: true }],
   })
     .populate("createdBy", "username")
     .populate("participants", "username")
@@ -60,9 +60,14 @@ router.get("/capsules/:id", isAuthenticated, (req, res) => {
     .populate("createdBy", "name")
     .populate("participants", "name")
     .then((capsule) => {
-      if (!capsule || !canSeeCapsule(capsule, userId)) {
+      if (!capsule) {
         return res.status(404).json({ message: "Capsule not found" });
       }
+      if (!canSeeCapsule(capsule, userId)) {
+        const { id, unlockedDate, isLocked } = capsule;
+        return res.status(200).json({ id, isLocked, unlockedDate });
+      }
+
       res.json(capsule);
     })
     .catch((error) => {
@@ -141,6 +146,46 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
     });
 });
 
+// POST /api/capsules/:id/lock
+router.post("/capsules/:id/lock", isAuthenticated, (req, res) => {
+  const { id } = req.params;
+  const userId = req.payload._id;
+
+  TimeCapsule.findById(id)
+    .then((capsule) => {
+      if (!capsule) {
+        return res.status(404).json({ message: "Capsule not found" });
+      }
+
+      if (capsule.createdBy.toString() !== userId) {
+        return res
+          .status(403)
+          .json({ message: "You are not authorized to update this capsule" });
+      }
+
+      if (capsule.isLocked) {
+        return res.status(409).json({ message: "Capsule is locked" });
+      }
+
+      return TimeCapsule.findByIdAndUpdate(
+        id,
+        {
+          isLocked: true,
+        },
+        { new: true }
+      );
+    })
+    .then((updatedCapsule) => {
+      if (updatedCapsule) {
+        res.json(updatedCapsule);
+      }
+    })
+    .catch((error) => {
+      console.error("Error updating capsule:", error);
+      res.status(400).json({ error: "Failed to update capsule" });
+    });
+});
+
 //DELETE Capsule - DELETE /api/capsules/:id
 router.delete("/capsules/:id", isAuthenticated, (req, res) => {
   const { id } = req.params;
@@ -163,6 +208,7 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
     .then((deletedCapsule) => {
       if (deletedCapsule) {
         res.json({ message: "Capsule deleted successfully" });
+        return;
       }
     })
     .catch((error) => {
@@ -191,7 +237,7 @@ function canSeeCapsule(capsule, userId) {
   return (
     (isUnlocked(capsule) && capsule.participants.includes(userId)) ||
     (isUnlocked(capsule) && capsule.isPublic) ||
-    (isDraft(capsule) && isOwner(capsule, userId)) 
+    (isDraft(capsule) && isOwner(capsule, userId))
   );
 }
 
