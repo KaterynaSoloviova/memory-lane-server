@@ -40,13 +40,32 @@ const timeCapsuleSchema = new Schema(
     emails: [
       {
         type: String,
-      }
+      },
     ],
     items: [
       {
-        type: Object,
+        type: {
+          type: String,
+          required: true,
+          enum: ["text", "image", "video", "audio", "document"],
+        },
+        content: {
+          type: String,
+          required: true,
+        },
+        style: {
+          type: String,
+          default: "default",
+        },
+        metadata: {
+          type: Object,
+          default: {},
+        },
       },
     ],
+    backgroundMusic: {
+      type: String,
+    },
   },
   {
     timestamps: true, // adds createdAt and updatedAt

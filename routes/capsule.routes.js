@@ -1,10 +1,8 @@
 const router = require("express").Router();
-
 const TimeCapsule = require("../models/TimeCapsule.model");
 const { isAuthenticated } = require("../middleware/jwt.middleware");
 
-// Post/api/capsules/ - create a new capsule
-
+// POST /api/capsules - create a new capsule
 router.post("/capsules", isAuthenticated, (req, res) => {
   const {
     title,
@@ -15,6 +13,7 @@ router.post("/capsules", isAuthenticated, (req, res) => {
     isLocked,
     emails,
     items,
+    backgroundMusic,
   } = req.body;
 
   TimeCapsule.create({
@@ -27,6 +26,7 @@ router.post("/capsules", isAuthenticated, (req, res) => {
     participants: [],
     emails,
     items,
+    backgroundMusic,
     createdBy: req.payload._id,
   })
     .then((newCapsule) => res.status(201).json(newCapsule))
@@ -36,7 +36,7 @@ router.post("/capsules", isAuthenticated, (req, res) => {
     });
 });
 
-// GET /api/capsules
+// GET /api/capsules - get all capsules user can see
 router.get("/capsules", isAuthenticated, (req, res) => {
   const userId = req.payload._id;
 
@@ -56,7 +56,7 @@ router.get("/capsules", isAuthenticated, (req, res) => {
     });
 });
 
-// GET /api/capsules/:id
+// GET /api/capsules/:id - get one capsule
 router.get("/capsules/:id", isAuthenticated, (req, res) => {
   const { id } = req.params;
   const userId = req.payload._id;
@@ -81,7 +81,7 @@ router.get("/capsules/:id", isAuthenticated, (req, res) => {
     });
 });
 
-// GET all public unlocked capsules
+// GET /api/public - all public unlocked capsules
 router.get("/public", (req, res) => {
   const now = new Date();
 
@@ -98,7 +98,7 @@ router.get("/public", (req, res) => {
     });
 });
 
-// PUT /api/capsules/:id
+// PUT /api/capsules/:id - update a capsule
 router.put("/capsules/:id", isAuthenticated, (req, res) => {
   const { id } = req.params;
   const userId = req.payload._id;
@@ -111,6 +111,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
     isLocked,
     emails,
     items,
+    backgroundMusic,
   } = req.body;
 
   TimeCapsule.findById(id)
@@ -136,6 +137,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
           isLocked,
           emails,
           items,
+          backgroundMusic,
         },
         { new: true }
       );
@@ -151,7 +153,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
     });
 });
 
-// POST /api/capsules/:id/lock
+// POST /api/capsules/:id/lock - lock a capsule
 router.post("/capsules/:id/lock", isAuthenticated, (req, res) => {
   const { id } = req.params;
   const userId = req.payload._id;
@@ -191,7 +193,7 @@ router.post("/capsules/:id/lock", isAuthenticated, (req, res) => {
     });
 });
 
-//DELETE Capsule - DELETE /api/capsules/:id
+// DELETE /api/capsules/:id - delete a capsule
 router.delete("/capsules/:id", isAuthenticated, (req, res) => {
   const { id } = req.params;
   const userId = req.payload._id;
