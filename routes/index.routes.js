@@ -10,8 +10,8 @@ router.use("/", userRoutes);
 const capsuleRoutes = require("./capsule.routes");
 router.use("/", capsuleRoutes);
 
-const memoryItemRoutes = require("./memoryItem.routes");
-router.use("/", memoryItemRoutes);
+const invitationRoutes = require("./invitation.routes");
+router.use("/", invitationRoutes);
 
 
 

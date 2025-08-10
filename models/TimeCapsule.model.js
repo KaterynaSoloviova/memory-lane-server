@@ -37,6 +37,11 @@ const timeCapsuleSchema = new Schema(
         ref: "User",
       },
     ],
+    emails: [
+      {
+        type: String,
+      }
+    ],
     items: [
       {
         type: Object,

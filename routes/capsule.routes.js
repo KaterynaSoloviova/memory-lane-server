@@ -13,7 +13,7 @@ router.post("/capsules", isAuthenticated, (req, res) => {
     unlockedDate,
     isPublic,
     isLocked,
-    participants,
+    emails,
     items,
   } = req.body;
 
@@ -24,7 +24,8 @@ router.post("/capsules", isAuthenticated, (req, res) => {
     unlockedDate,
     isPublic,
     isLocked,
-    participants,
+    participants: [],
+    emails,
     items,
     createdBy: req.payload._id,
   })
@@ -40,7 +41,11 @@ router.get("/capsules", isAuthenticated, (req, res) => {
   const userId = req.payload._id;
 
   TimeCapsule.find({
-    $or: [{ createdBy: userId }, { participants: userId }, { isPublic: true }],
+    $or: [
+      { createdBy: userId },
+      { participants: userId },
+      { $and: [{ isPublic: true }, { isLocked: true }] },
+    ],
   })
     .populate("createdBy", "username")
     .populate("participants", "username")
@@ -104,7 +109,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
     unlockedDate,
     isPublic,
     isLocked,
-    participants,
+    emails,
     items,
   } = req.body;
 
@@ -129,7 +134,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
           unlockedDate,
           isPublic,
           isLocked,
-          participants,
+          emails,
           items,
         },
         { new: true }
