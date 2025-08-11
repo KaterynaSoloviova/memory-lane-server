@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const TimeCapsule = require("../models/TimeCapsule.model");
 const { isAuthenticated } = require("../middleware/jwt.middleware");
+const {isLocked, isUnlocked, isOwner, isDraft, canSeeCapsule} = require("../utils/validators")
 
 // POST /api/capsules - create a new capsule
 router.post("/capsules", isAuthenticated, (req, res) => {
@@ -223,29 +224,5 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
       res.status(500).json({ error: "Failed to delete capsule" });
     });
 });
-
-function isLocked(capsule) {
-  return capsule.isLocked && capsule.unlockedDate > new Date();
-}
-
-function isUnlocked(capsule) {
-  return capsule.isLocked && capsule.unlockedDate <= new Date();
-}
-
-function isDraft(capsule) {
-  return !capsule.isLocked;
-}
-
-function isOwner(capsule, userId) {
-  return capsule.createdBy._id.toString() === userId;
-}
-
-function canSeeCapsule(capsule, userId) {
-  return (
-    (isUnlocked(capsule) && capsule.participants.includes(userId)) ||
-    (isUnlocked(capsule) && capsule.isPublic) ||
-    (isDraft(capsule) && isOwner(capsule, userId))
-  );
-}
 
 module.exports = router;

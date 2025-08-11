@@ -13,6 +13,10 @@ router.use("/", capsuleRoutes);
 const invitationRoutes = require("./invitation.routes");
 router.use("/", invitationRoutes);
 
+const commentRoutes = require("./comment.routes.js");
+router.use("/", commentRoutes);
+
+
 
 
 module.exports = router;
