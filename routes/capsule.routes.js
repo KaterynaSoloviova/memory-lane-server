@@ -152,7 +152,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
     backgroundMusic,
     slideshowTimeout,
   } = req.body;
-  const userId = getTokenFromHeaders(req)._id;
+  const userId = req.payload._id;
 
   TimeCapsule.findById(id)
     .then((capsule) => {
