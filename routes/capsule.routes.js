@@ -1,7 +1,25 @@
 const router = require("express").Router();
 const TimeCapsule = require("../models/TimeCapsule.model");
-const { isAuthenticated } = require("../middleware/jwt.middleware");
-const {isLocked, isUnlocked, isOwner, isDraft, canSeeCapsule} = require("../utils/validators")
+const jwt = require("jsonwebtoken");
+const { isAuthenticated , getTokenFromHeaders} = require("../middleware/jwt.middleware");
+const {
+  isLocked,
+  isUnlocked,
+  isOwner,
+  isDraft,
+  canSeeCapsule,
+} = require("../utils/validators");
+
+// Helper function to decode JWT token and get user info
+function decodeToken(token) {
+  try {
+    if (!token) return null;
+    return jwt.verify(token, process.env.TOKEN_SECRET);
+  } catch (error) {
+    console.log("Invalid token provided:", error.message);
+    return null;
+  }
+}
 
 // POST /api/capsules - create a new capsule
 router.post("/capsules", isAuthenticated, (req, res) => {
@@ -15,6 +33,7 @@ router.post("/capsules", isAuthenticated, (req, res) => {
     emails,
     items,
     backgroundMusic,
+    slideshowTimeout,
   } = req.body;
 
   TimeCapsule.create({
@@ -28,6 +47,7 @@ router.post("/capsules", isAuthenticated, (req, res) => {
     emails,
     items,
     backgroundMusic,
+    slideshowTimeout,
     createdBy: req.payload._id,
   })
     .then((newCapsule) => res.status(201).json(newCapsule))
@@ -57,21 +77,39 @@ router.get("/capsules", isAuthenticated, (req, res) => {
     });
 });
 
-// GET /api/capsules/:id - get one capsule
-router.get("/capsules/:id", isAuthenticated, (req, res) => {
+// GET /api/capsules/:id - get one capsule (authentication optional)
+router.get("/capsules/:id", (req, res) => {
   const { id } = req.params;
-  const userId = req.payload._id;
+  const token = getTokenFromHeaders(req);
+  let userId = null;
+  
+  // If token is provided, try to decode it to get user info
+  if (token) {
+    const decodedToken = decodeToken(token);
+    if (decodedToken) {
+      userId = decodedToken._id;
+    }
+  }
 
   TimeCapsule.findById(id)
-    .populate("createdBy", "name")
-    .populate("participants", "name")
+    .populate("createdBy")
+    .populate("participants")
     .then((capsule) => {
       if (!capsule) {
         return res.status(404).json({ message: "Capsule not found" });
       }
-      if (!canSeeCapsule(capsule, userId)) {
-        const { unlockedDate, isLocked } = capsule;
-        return res.status(200).json({ _id: id, isLocked, unlockedDate });
+      
+      // If user is authenticated, use their ID for access control
+      if (userId) {
+        if (!canSeeCapsule(capsule, userId)) {
+          const { unlockedDate, isLocked } = capsule;
+          return res.status(200).json({ _id: id, isLocked, unlockedDate });
+        }
+      } else {
+        // For unlocked capsules, check if they're public
+        if (!capsule.isPublic || !capsule.isLocked) {
+          return res.status(404).json({ message: "Capsule not found" });
+        }
       }
 
       res.json(capsule);
@@ -102,7 +140,6 @@ router.get("/public", (req, res) => {
 // PUT /api/capsules/:id - update a capsule
 router.put("/capsules/:id", isAuthenticated, (req, res) => {
   const { id } = req.params;
-  const userId = req.payload._id;
   const {
     title,
     image,
@@ -113,7 +150,9 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
     emails,
     items,
     backgroundMusic,
+    slideshowTimeout,
   } = req.body;
+  const userId = getTokenFromHeaders(req)._id;
 
   TimeCapsule.findById(id)
     .then((capsule) => {
@@ -139,6 +178,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
           emails,
           items,
           backgroundMusic,
+          slideshowTimeout,
         },
         { new: true }
       );

@@ -75,6 +75,10 @@ const timeCapsuleSchema = new Schema(
     backgroundMusic: {
       type: String,
     },
+    slideshowTimeout: {
+      type: Number,
+      default: 5000
+    }
   },
   {
     timestamps: true, // adds createdAt and updatedAt
