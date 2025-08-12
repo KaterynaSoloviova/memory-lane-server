@@ -57,6 +57,15 @@ const timeCapsuleSchema = new Schema(
           type: String,
           default: "default",
         },
+        fontSize: {
+          type: String,
+        },
+        fontFamily: {
+          type: String,
+        },
+        fontColor: {
+          type: String,
+        },
         metadata: {
           type: Object,
           default: {},

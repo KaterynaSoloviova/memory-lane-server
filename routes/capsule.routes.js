@@ -70,8 +70,8 @@ router.get("/capsules/:id", isAuthenticated, (req, res) => {
         return res.status(404).json({ message: "Capsule not found" });
       }
       if (!canSeeCapsule(capsule, userId)) {
-        const { id, unlockedDate, isLocked } = capsule;
-        return res.status(200).json({ id, isLocked, unlockedDate });
+        const { unlockedDate, isLocked } = capsule;
+        return res.status(200).json({ _id: id, isLocked, unlockedDate });
       }
 
       res.json(capsule);
