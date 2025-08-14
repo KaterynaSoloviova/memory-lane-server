@@ -272,9 +272,10 @@ router.post("/capsules/trigger-unlocks", async (req, res) => {
       isSent: false,
       unlockedDate: { $lte: new Date(new Date().setHours(23, 59, 59, 999)) },
     });
-
+    console.log(`Found ${capsules.map((capsule) => capsule.title).join(",")} capsules`);
     for (const capsule of capsules) {
-      const { emails, participants, title } = capsule;
+      const { emails, title } = capsule;
+      const participants = capsule.participants;
       const registeredUsers = await User.find({ _id: { $in: participants } });
       const registeredUserEmails = registeredUsers.map((user) => user.email);
       const notRegisteredUserEmails = emails.filter(
@@ -289,7 +290,7 @@ router.post("/capsules/trigger-unlocks", async (req, res) => {
         const capsuleLink = `${process.env.ORIGIN}/capsules/${capsule._id}`;
         await sendUnlockCapsuleEmail(email, title, capsuleLink);
       }
-      await TimeCapsule.findByIdAndUpdate(capsule._id, { isSent: true });
+      await TimeCapsule.findByIdAndUpdate(capsule._id.toString(), { isSent: true });
     }
 
     res.json(capsules);
