@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { Resend } = require("resend");
 const nodemailer = require("nodemailer");
+const mongoose = require("mongoose");
 
 const Invitation = require("../models/Invitation.model");
 const { isAuthenticated } = require("../middleware/jwt.middleware");
@@ -10,8 +11,13 @@ const { sendInvitationEmail } = require("../utils/email");
 router.post("/invitations", isAuthenticated, async (req, res) => {
   const { capsule, email } = req.body;
   const userId = req.payload._id;
+
   if (!email) {
     return res.status(400).json({ error: "email is required" });
+  }
+
+  if (!capsule || !mongoose.Types.ObjectId.isValid(capsule)) {
+    return res.status(400).json({ error: "capsule id is invalid" });
   }
 
   try {
@@ -23,8 +29,8 @@ router.post("/invitations", isAuthenticated, async (req, res) => {
     });
     res.status(201).json(newInvitation);
   } catch (err) {
-    console.error("Error creating invitation:", err);
-    res.status(500).json({ error: "Failed to create invitation" });
+    console.error("Create invitation: Error creating invitation:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -38,8 +44,8 @@ router.get("/invitations", isAuthenticated, (req, res) => {
   })
     .then((invitations) => res.status(200).json(invitations))
     .catch((err) => {
-      console.error("Error getting invitation:", err);
-      res.status(500).json({ error: "Failed to get invitation" });
+      console.error("Get invitations: Error getting invitations:", err);
+      res.status(500).json({ error: err.message });
     });
 });
 
@@ -76,8 +82,8 @@ router.post("/sendmail", async (req, res) => {
       info: info,
     });
   } catch (err) {
-    console.error("Error sending email:", err);
-    res.status(500).json({ error: "Failed to send email" });
+    console.error("Send email: Error sending email:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 

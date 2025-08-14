@@ -1,24 +1,27 @@
 const router = require("express").Router();
-
+const mongoose = require("mongoose");
 const User = require("../models/User.model");
 const { isAuthenticated } = require("../middleware/jwt.middleware");
 
 // GET /users/ - Get all users
-
 router.get("/users", isAuthenticated, (req, res) => {
-    User.find()
-        .then(usersFromDB => res.status(200).json(usersFromDB))
-        .catch((error) => {
-            console.log(" Error getting users from the DB...", error);
-            res.status(500).json({ error: 'Failed to get users' });
-        });
+  User.find()
+    .then(usersFromDB => res.status(200).json(usersFromDB))
+    .catch((err) => {
+      console.error("Get users: Error getting users from the DB...", err);
+      res.status(500).json({ error: err.message });
+    });
 });
 
 // GET /users/:id - Get profile Info
 router.get("/users/:id", isAuthenticated, (req, res) => {
-  const { id } = req.params;
+  const { id: userId } = req.params;
 
-  User.findById(id)
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ error: "User id is invalid" });
+  }
+
+  User.findById(userId)
     .then((userFromDB) => {
       if (!userFromDB) {
         return res.status(404).json({ message: "User not found" });
@@ -26,21 +29,25 @@ router.get("/users/:id", isAuthenticated, (req, res) => {
       const { password, ...userWithoutPassword } = userFromDB.toObject();
       res.status(200).json(userWithoutPassword);
     })
-    .catch((error) => {
-      console.log("Error getting user from DB...", error);
-      res.status(500).json({ error: "Failed to get user" });
+    .catch((err) => {
+      console.error("Get user: Error getting user from DB...", err);
+      res.status(500).json({ error: err.message });
     });
 });
 
 // PUT /users/:id - Edit profile
 router.put("/users/:id", isAuthenticated, (req, res) => {
-  const { id } = req.params;
-  const { username, email, profileImage} = req.body;
+  const { id: userId } = req.params;
+  const { username, email, profileImage } = req.body;
+
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ error: "User id is invalid" });
+  }
 
   User.findByIdAndUpdate(
-    id,
-    { username, email, profileImage},
-    { new: true}
+    userId,
+    { username, email, profileImage },
+    { new: true }
   )
     .then((updatedUser) => {
       if (!updatedUser) {
@@ -50,18 +57,22 @@ router.put("/users/:id", isAuthenticated, (req, res) => {
       const { password, ...userWithoutPassword } = updatedUser.toObject();
       res.status(200).json(userWithoutPassword);
     })
-    .catch((error) => {
-      console.error("Error updating user:", error);
-      res.status(500).json({ error: "Failed to update user" });
+    .catch((err) => {
+      console.error("Update user: Error updating user:", err);
+      res.status(500).json({ error: err.message });
     });
 });
 
 
 // DELETE /api/users/:id - Delete account
 router.delete("/users/:id", isAuthenticated, (req, res) => {
-  const { id } = req.params;
+  const { id: userId } = req.params;
 
-  User.findByIdAndDelete(id)
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ error: "User id is invalid" });
+  }
+
+  User.findByIdAndDelete(userId)
     .then((deletedUser) => {
       if (!deletedUser) {
         return res.status(404).json({ message: "User not found" });
@@ -69,9 +80,9 @@ router.delete("/users/:id", isAuthenticated, (req, res) => {
 
       res.status(200).json({ message: "User account deleted successfully" });
     })
-    .catch((error) => {
-      console.error("Error deleting user:", error);
-      res.status(500).json({ error: "Failed to delete user" });
+    .catch((err) => {
+      console.error("Delete user: Error deleting user:", err);
+      res.status(500).json({ error: err.message });
     });
 });
 

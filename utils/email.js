@@ -21,9 +21,9 @@ const sendInvitationEmail = async (to, invitationLink) => {
     </div>
   `,
     );
-  } catch (error) {
-    console.error("Email sending failed:", error);
-    throw error;
+  } catch (err) {
+    console.error("Send invitation email: Error sending invitation email:", err);
+    throw err;
   }
 };
 
@@ -46,9 +46,9 @@ const sendUnlockCapsuleEmail = async (to, title, capsuleLink) => {
       <p>Warm wishes,<br>The Memory Lane Team</p>
     </div>
   `);
-  } catch (error) {
-    console.error("Email sending failed:", error);
-    throw error;
+  } catch (err) {
+    console.error("Send unlock capsule email: Error sending unlock capsule email:", err);
+    throw err;
   }
 };
 
@@ -73,9 +73,9 @@ const sendEmail = async (to, subject, html) => {
 
     // Send email
     await transporter.sendMail(mailOptions);
-  } catch (error) {
-    console.error("Email sending failed:", error);
-    throw error;
+  } catch (err) {
+    console.error("Send email: Error sending email:", err);
+    throw err;
   }
 };
 

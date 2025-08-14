@@ -2,6 +2,7 @@ const router = require("express").Router();
 const TimeCapsule = require("../models/TimeCapsule.model");
 const User = require("../models/User.model");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const {
   isAuthenticated,
   getTokenFromHeaders,
@@ -14,8 +15,8 @@ function decodeToken(token) {
   try {
     if (!token) return null;
     return jwt.verify(token, process.env.TOKEN_SECRET);
-  } catch (error) {
-    console.log("Invalid token provided:", error.message);
+  } catch (err) {
+    console.error("Decode token: Invalid token provided:", err.message);
     return null;
   }
 }
@@ -50,9 +51,9 @@ router.post("/capsules", isAuthenticated, (req, res) => {
     createdBy: req.payload._id,
   })
     .then((newCapsule) => res.status(201).json(newCapsule))
-    .catch((error) => {
-      console.error("Error creating capsule:", error);
-      res.status(400).json({ error: error.message });
+    .catch((err) => {
+      console.error("Create capsule: Error creating capsule:", err);
+      res.status(400).json({ error: err.message });
     });
 });
 
@@ -70,19 +71,23 @@ router.get("/capsules", isAuthenticated, (req, res) => {
     .populate("createdBy", "username")
     .populate("participants", "username")
     .then((capsules) => res.json(capsules))
-    .catch((error) => {
-      console.error("Error fetching capsules:", error);
-      res.status(500).json({ error: "Failed to fetch capsules" });
+    .catch((err) => {
+      console.error("Fetch capsules: Error fetching capsules:", err);
+      res.status(500).json({ error: err.message });
     });
 });
 
 // GET /api/capsules/:id - get one capsule (authentication optional)
 router.get("/capsules/:id", (req, res) => {
-  const { id } = req.params;
+  const { id: capsuleId } = req.params;
   const token = getTokenFromHeaders(req);
-  let userId = null;
+
+  if (!capsuleId || !mongoose.Types.ObjectId.isValid(capsuleId)) {
+    return res.status(400).json({ error: "Capsule id is invalid" });
+  }
 
   // If token is provided, try to decode it to get user info
+  let userId = null;
   if (token) {
     const decodedToken = decodeToken(token);
     if (decodedToken) {
@@ -90,7 +95,7 @@ router.get("/capsules/:id", (req, res) => {
     }
   }
 
-  TimeCapsule.findById(id)
+  TimeCapsule.findById(capsuleId)
     .populate("createdBy")
     .populate("participants")
     .then((capsule) => {
@@ -102,7 +107,7 @@ router.get("/capsules/:id", (req, res) => {
       if (userId) {
         if (!canSeeCapsule(capsule, userId)) {
           const { unlockedDate, isLocked } = capsule;
-          return res.status(200).json({ _id: id, isLocked, unlockedDate });
+          return res.status(200).json({ _id: capsuleId, isLocked, unlockedDate });
         }
       } else {
         // For unlocked capsules, check if they're public
@@ -113,9 +118,9 @@ router.get("/capsules/:id", (req, res) => {
 
       res.json(capsule);
     })
-    .catch((error) => {
-      console.error("Error getting capsule:", error);
-      res.status(500).json({ error: "Failed to get capsule" });
+    .catch((err) => {
+      console.error("Get capsule: Error getting capsule:", err);
+      res.status(500).json({ error: err.message });
     });
 });
 
@@ -130,15 +135,15 @@ router.get("/public", (req, res) => {
   })
     .sort({ unlockedDate: -1 })
     .then((capsules) => res.json(capsules))
-    .catch((error) => {
-      console.error("Error fetching public capsules:", error);
-      res.status(500).json({ message: "Server error" });
+    .catch((err) => {
+      console.error("Fetch public capsules: Error fetching public capsules:", err);
+      res.status(500).json({ message: err.message });
     });
 });
 
 // PUT /api/capsules/:id - update a capsule
 router.put("/capsules/:id", isAuthenticated, (req, res) => {
-  const { id } = req.params;
+  const { id: capsuleId } = req.params;
   const {
     title,
     image,
@@ -152,8 +157,24 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
     slideshowTimeout,
   } = req.body;
   const userId = req.payload._id;
+  
+  if (!capsuleId || !mongoose.Types.ObjectId.isValid(capsuleId)) {
+      return res.status(400).json({ error: "Capsule id is invalid" });
+  }
 
-  TimeCapsule.findById(id)
+  if (!title) {
+    return res.status(400).json({ message: "Title is required" });
+  }
+
+  if (!description) {
+    return res.status(400).json({ message: "Description is required" });
+  }
+
+  if (!unlockedDate) {
+    return res.status(400).json({ message: "Unlocked date is required" });
+  }
+
+  TimeCapsule.findById(capsuleId)
     .then((capsule) => {
       if (!capsule) {
         return res.status(404).json({ message: "Capsule not found" });
@@ -166,7 +187,7 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
       }
 
       return TimeCapsule.findByIdAndUpdate(
-        id,
+        capsuleId,
         {
           title,
           image,
@@ -187,18 +208,22 @@ router.put("/capsules/:id", isAuthenticated, (req, res) => {
         res.json(updatedCapsule);
       }
     })
-    .catch((error) => {
-      console.error("Error updating capsule:", error);
-      res.status(400).json({ error: "Failed to update capsule" });
+    .catch((err) => {
+      console.error("Update capsule: Error updating capsule:", err);
+      res.status(400).json({ error: err.message });
     });
 });
 
 // POST /api/capsules/:id/lock - lock a capsule
 router.post("/capsules/:id/lock", isAuthenticated, (req, res) => {
-  const { id } = req.params;
+  const { id: capsuleId } = req.params;
   const userId = req.payload._id;
 
-  TimeCapsule.findById(id)
+  if (!capsuleId || !mongoose.Types.ObjectId.isValid(capsuleId)) {
+    return res.status(400).json({ error: "Capsule id is invalid" });
+  }
+
+  TimeCapsule.findById(capsuleId)
     .then((capsule) => {
       if (!capsule) {
         return res.status(404).json({ message: "Capsule not found" });
@@ -215,7 +240,7 @@ router.post("/capsules/:id/lock", isAuthenticated, (req, res) => {
       }
 
       return TimeCapsule.findByIdAndUpdate(
-        id,
+        capsuleId,
         {
           isLocked: true,
         },
@@ -227,18 +252,22 @@ router.post("/capsules/:id/lock", isAuthenticated, (req, res) => {
         res.json(updatedCapsule);
       }
     })
-    .catch((error) => {
-      console.error("Error updating capsule:", error);
+    .catch((err) => {
+      console.error("Update capsule: Error updating capsule:", err);
       res.status(400).json({ error: "Failed to update capsule" });
     });
 });
 
 // DELETE /api/capsules/:id - delete a capsule
 router.delete("/capsules/:id", isAuthenticated, (req, res) => {
-  const { id } = req.params;
+  const { id: capsuleId } = req.params;
   const userId = req.payload._id;
 
-  TimeCapsule.findById(id)
+  if (!capsuleId || !mongoose.Types.ObjectId.isValid(capsuleId)) {
+    return res.status(400).json({ error: "Capsule id is invalid" });
+  }
+
+  TimeCapsule.findById(capsuleId)
     .then((capsule) => {
       if (!capsule) {
         return res.status(404).json({ message: "Capsule not found" });
@@ -250,7 +279,7 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
           .json({ message: "You are not authorized to delete this capsule" });
       }
 
-      return TimeCapsule.findByIdAndDelete(id);
+      return TimeCapsule.findByIdAndDelete(capsuleId);
     })
     .then((deletedCapsule) => {
       if (deletedCapsule) {
@@ -258,9 +287,9 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
         return;
       }
     })
-    .catch((error) => {
-      console.error("Error deleting capsule:", error);
-      res.status(500).json({ error: "Failed to delete capsule" });
+    .catch((err) => {
+      console.error("Delete capsule: Error deleting capsule:", err);
+      res.status(500).json({ error: err.message });
     });
 });
 
@@ -272,7 +301,8 @@ router.post("/trigger-unlocks", async (req, res) => {
       isSent: false,
       unlockedDate: { $lte: new Date(new Date().setHours(23, 59, 59, 999)) },
     });
-    console.log(`Found ${capsules.map((capsule) => capsule.title).join(",")} capsules`);
+
+    console.log(`Trigger unlocks: Found ${capsules.map((capsule) => capsule.title).join(",")} capsules`);
     for (const capsule of capsules) {
       const { emails, title } = capsule;
       const participants = capsule.participants;
@@ -283,20 +313,20 @@ router.post("/trigger-unlocks", async (req, res) => {
       );
 
       const allEmails = [...registeredUserEmails, ...notRegisteredUserEmails];
-      console.log(`Sending email to ${allEmails.join(",")}`);
+      console.log(`Trigger unlocks: Sending email to ${allEmails.join(",")}`);
       for (let i = 0; i < allEmails.length; i++) {
         const email = allEmails[i];
-        console.log(`Sending email to ${email}`);
-        const capsuleLink = `${process.env.ORIGIN}/capsules/${capsule._id}`;
+        console.log(`Trigger unlocks: Sending email to ${email}`);
+        const capsuleLink = `${process.env.ORIGIN}/capsule/${capsule._id}`;
         await sendUnlockCapsuleEmail(email, title, capsuleLink);
       }
       await TimeCapsule.findByIdAndUpdate(capsule._id.toString(), { isSent: true });
     }
 
     res.json(capsules);
-  } catch (error) {
-    console.error("Error triggering unlocks:", error);
-    res.status(500).json({ error: "Failed to trigger unlocks" });
+  } catch (err) {
+    console.error("Trigger unlocks: Error triggering unlocks:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
