@@ -4,6 +4,7 @@ const nodemailer = require("nodemailer");
 
 const Invitation = require("../models/Invitation.model");
 const { isAuthenticated } = require("../middleware/jwt.middleware");
+const { sendInvitationEmail } = require("../utils/email");
 
 // POST api/invitations - create an invitation
 router.post("/invitations", isAuthenticated, async (req, res) => {
@@ -14,38 +15,7 @@ router.post("/invitations", isAuthenticated, async (req, res) => {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.NODEMAILER_USER,
-        pass: process.env.NODEMAILER_PWD,
-      },
-    });
-
-    // Email options
-    const mailOptions = {
-      from: "memorylane.emailnotifications@gmail.com",
-      to: email,
-      subject: "You're Invited to a Time Capsule! 🎉",
-      html: `
-    <div style="font-family: Arial, sans-serif; color: #333;">
-      <h2 style="color: #4a90e2;">You're Invited to a Time Capsule! 🎉</h2>
-      <p>Hi there,</p>
-      <p>You’ve been invited to join a special <strong>Time Capsule</strong>! To unlock and view this capsule, please <strong>register an account</strong> on our platform.</p>
-      <p style="text-align: center; margin: 20px 0;">
-        <a href="${process.env.INVITATION_LINK}" style="background-color: #4a90e2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Create Your Account & Access Your Capsule</a>
-      </p>
-      <p>Please use this email address to sign up, as it’s linked to your invitation. Don’t worry — once you’re registered, you can update your email anytime inside your profile.</p>
-      <p>We can’t wait for you to explore the memories and messages saved just for you!</p>
-      <p>If you have any questions, just reply to this email.</p>
-      <p>Warm wishes,<br>The Time Capsule Team</p>
-    </div>
-  `,
-    };
-
-    // Send email
-    const info = await transporter.sendMail(mailOptions);
-
+    await sendInvitationEmail(email, `${process.env.ORIGIN}/signup`);
     const newInvitation = await Invitation.create({
       capsule,
       email,
@@ -61,7 +31,6 @@ router.post("/invitations", isAuthenticated, async (req, res) => {
 // GET /api/invitations - get current user’s pending invitations
 router.get("/invitations", isAuthenticated, (req, res) => {
   const email = req.payload.email;
-  console.log(req.payload);
 
   Invitation.find({
     email: email,

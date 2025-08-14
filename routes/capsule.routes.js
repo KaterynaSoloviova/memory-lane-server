@@ -1,14 +1,13 @@
 const router = require("express").Router();
 const TimeCapsule = require("../models/TimeCapsule.model");
+const User = require("../models/User.model");
 const jwt = require("jsonwebtoken");
-const { isAuthenticated , getTokenFromHeaders} = require("../middleware/jwt.middleware");
 const {
-  isLocked,
-  isUnlocked,
-  isOwner,
-  isDraft,
-  canSeeCapsule,
-} = require("../utils/validators");
+  isAuthenticated,
+  getTokenFromHeaders,
+} = require("../middleware/jwt.middleware");
+const { canSeeCapsule } = require("../utils/validators");
+const { sendUnlockCapsuleEmail } = require("../utils/email");
 
 // Helper function to decode JWT token and get user info
 function decodeToken(token) {
@@ -82,7 +81,7 @@ router.get("/capsules/:id", (req, res) => {
   const { id } = req.params;
   const token = getTokenFromHeaders(req);
   let userId = null;
-  
+
   // If token is provided, try to decode it to get user info
   if (token) {
     const decodedToken = decodeToken(token);
@@ -98,7 +97,7 @@ router.get("/capsules/:id", (req, res) => {
       if (!capsule) {
         return res.status(404).json({ message: "Capsule not found" });
       }
-      
+
       // If user is authenticated, use their ID for access control
       if (userId) {
         if (!canSeeCapsule(capsule, userId)) {
@@ -263,6 +262,41 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
       console.error("Error deleting capsule:", error);
       res.status(500).json({ error: "Failed to delete capsule" });
     });
+});
+
+router.post("/capsules/trigger-unlocks", async (req, res) => {
+  try {
+    // Find capsules that are locked, not sent, and unlocked date is in the past
+    const capsules = await TimeCapsule.find({
+      isLocked: true,
+      isSent: false,
+      unlockedDate: { $lte: new Date(new Date().setHours(23, 59, 59, 999)) },
+    });
+
+    for (const capsule of capsules) {
+      const { emails, participants, title } = capsule;
+      const registeredUsers = await User.find({ _id: { $in: participants } });
+      const registeredUserEmails = registeredUsers.map((user) => user.email);
+      const notRegisteredUserEmails = emails.filter(
+        (email) => !registeredUserEmails.includes(email)
+      );
+
+      const allEmails = [...registeredUserEmails, ...notRegisteredUserEmails];
+      console.log(`Sending email to ${allEmails.join(",")}`);
+      for (let i = 0; i < allEmails.length; i++) {
+        const email = allEmails[i];
+        console.log(`Sending email to ${email}`);
+        const capsuleLink = `${process.env.ORIGIN}/capsules/${capsule._id}`;
+        await sendUnlockCapsuleEmail(email, title, capsuleLink);
+      }
+      await TimeCapsule.findByIdAndUpdate(capsule._id, { isSent: true });
+    }
+
+    res.json(capsules);
+  } catch (error) {
+    console.error("Error triggering unlocks:", error);
+    res.status(500).json({ error: "Failed to trigger unlocks" });
+  }
 });
 
 module.exports = router;

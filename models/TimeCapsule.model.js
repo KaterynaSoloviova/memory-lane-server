@@ -31,6 +31,10 @@ const timeCapsuleSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    isSent: {
+      type: Boolean,
+      default: false,
+    },
     participants: [
       {
         type: Schema.Types.ObjectId,
@@ -81,10 +85,9 @@ const timeCapsuleSchema = new Schema(
     }
   },
   {
-    timestamps: true, // adds createdAt and updatedAt
+    timestamps: true,
   }
 );
 
 const TimeCapsule = model("TimeCapsule", timeCapsuleSchema);
-
 module.exports = TimeCapsule;

@@ -48,49 +48,36 @@ router.post("/signup", (req, res, next) => {
   // Check the users collection if a user with the same email already exists
   User.findOne({ email })
     .then((foundUser) => {
-      // If the user with the same email already exists, send an error response
       if (foundUser) {
         res.status(400).json({ message: "User already exists." });
         return;
       }
 
-      // If email is unique, proceed to hash the password
       const salt = bcrypt.genSaltSync(saltRounds);
       const hashedPassword = bcrypt.hashSync(password, salt);
 
-      // Create the new user in the database
-      // We return a pending promise, which allows us to chain another `then`
       return User.create({ email, password: hashedPassword, username });
     })
     .then((createdUser) => {
-      // Deconstruct the newly created user object to omit the password
-      // We should never expose passwords publicly
       const { email, username, _id } = createdUser;
-
-      // Create a new object that doesn't expose the password
       const user = { email, username, _id };
-
-      // Send a json response containing the user object
       res.status(201).json({ user: user });
     })
-    .catch((err) => next(err)); // In this case, we send error handling to the error handling middleware.
+    .catch((err) => next(err));
 });
 
 // POST  /auth/login - Verifies email and password and returns a JWT
 router.post("/login", async (req, res, next) => {
   const { email, password } = req.body;
 
-  // Check if email or password are provided as empty string
   if (email === "" || password === "") {
     res.status(400).json({ message: "Provide email and password." });
     return;
   }
 
   try {
-    // Check the users collection if a user with the same email exists
     const foundUser = await User.findOne({ email });
     if (!foundUser) {
-      // If the user is not found, send an error response
       res.status(401).json({ message: "User not found." });
       return;
     }
@@ -99,11 +86,8 @@ router.post("/login", async (req, res, next) => {
     const passwordCorrect = bcrypt.compareSync(password, foundUser.password);
 
     if (passwordCorrect) {
-      // Deconstruct the user object to omit the password
       const { _id, email, username } = foundUser;
       const userId = _id;
-
-      // Create an object that will be set as the token payload
       const payload = { _id, email, username };
 
       // Create a JSON Web Token and sign it
@@ -112,7 +96,6 @@ router.post("/login", async (req, res, next) => {
         expiresIn: "6h",
       });
 
-      // Find all pending invitations
       const pendingInvitations = await Invitation.find({
         status: "pending",
         email: email,
@@ -123,10 +106,9 @@ router.post("/login", async (req, res, next) => {
 
         pendingInvitations.forEach(async (invitation) => {
           try {
-            // add user to the capsule
             await TimeCapsule.findByIdAndUpdate(
               invitation.capsule,
-              { $addToSet: { participants: userId } }, // Avoid duplicates
+              { $addToSet: { participants: userId } },
               { new: true }
             );
             console.log(
@@ -149,7 +131,7 @@ router.post("/login", async (req, res, next) => {
       res.status(401).json({ message: "Unable to authenticate the user" });
     }
   } catch (err) {
-    next(err); // In this case, we send error handling to the error handling middleware.
+    next(err);
   }
 });
 
@@ -159,7 +141,6 @@ router.get("/verify", isAuthenticated, (req, res, next) => {
   // isAuthenticated middleware and is made available on `req.payload`
   console.log(`req.payload`, req.payload);
 
-  // Send back the token payload object containing the user data
   res.status(200).json(req.payload);
 });
 
@@ -168,8 +149,6 @@ router.put("/users/:id/email", isAuthenticated, async (req, res) => {
   const userId = req.params.id;
   const { newEmail } = req.body;
   if (req.payload._id !== userId) return res.status(403).send("Unauthorized");
-
-  // validate newEmail format here
 
   await User.findByIdAndUpdate(userId, { email: newEmail });
   res.json({ message: "Email updated" });

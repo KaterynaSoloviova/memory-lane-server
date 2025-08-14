@@ -18,10 +18,10 @@ const commentSchema = new Schema(
       trim: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true
+  }
 );
 
 const Comment = model("Comment", commentSchema);
-
 module.exports = Comment;
-
