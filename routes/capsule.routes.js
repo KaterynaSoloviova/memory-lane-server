@@ -264,7 +264,7 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
     });
 });
 
-router.post("/capsules/trigger-unlocks", async (req, res) => {
+router.post("/trigger-unlocks", async (req, res) => {
   try {
     // Find capsules that are locked, not sent, and unlocked date is in the past
     const capsules = await TimeCapsule.find({
