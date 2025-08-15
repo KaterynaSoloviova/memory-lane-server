@@ -293,6 +293,7 @@ router.delete("/capsules/:id", isAuthenticated, (req, res) => {
     });
 });
 
+// POST /api/trigger-unlocks - sends capsule notification emails for all unlocked capsules
 router.post("/trigger-unlocks", async (req, res) => {
   try {
     // Find capsules that are locked, not sent, and unlocked date is in the past
