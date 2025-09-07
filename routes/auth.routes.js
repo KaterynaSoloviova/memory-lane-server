@@ -61,7 +61,12 @@ router.post("/signup", (req, res, next) => {
     .then((createdUser) => {
       const { email, username, _id } = createdUser;
       const user = { email, username, _id };
-      res.status(201).json({ user: user });
+      // Create a JSON Web Token and sign it
+      const authToken = jwt.sign({ _id, email, username }, process.env.TOKEN_SECRET, {
+        algorithm: "HS256",
+        expiresIn: "6h",
+      });
+      res.status(201).json({ user: user, authToken: authToken });
     })
     .catch((err) => next(err));
 });
@@ -116,7 +121,7 @@ router.post("/login", async (req, res, next) => {
             );
 
             // accept the invitation
-           await Invitation.findByIdAndUpdate(invitation._id, {
+            await Invitation.findByIdAndUpdate(invitation._id, {
               status: "accepted",
             })
           } catch (err) {

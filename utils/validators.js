@@ -15,9 +15,10 @@ export function isOwner(capsule, userId) {
 }
 
 export function canSeeCapsule(capsule, userId) {
+  const participants = capsule.participants.map(participant => participant._id.toString());
   return (
     (isUnlocked(capsule) && isOwner(capsule, userId)) ||
-    (isUnlocked(capsule) && capsule.participants.includes(userId)) ||
+    (isUnlocked(capsule) && participants.includes(userId)) ||
     (isUnlocked(capsule) && capsule.isPublic) ||
     (isDraft(capsule) && isOwner(capsule, userId))
   );

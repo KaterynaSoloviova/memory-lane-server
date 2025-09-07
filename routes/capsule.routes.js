@@ -65,12 +65,33 @@ router.get("/capsules", isAuthenticated, (req, res) => {
     $or: [
       { createdBy: userId },
       { participants: userId },
-      { $and: [{ isPublic: true }, { isLocked: true }] },
     ],
   })
     .populate("createdBy", "username")
     .populate("participants", "username")
-    .then((capsules) => res.json(capsules))
+    .then((capsules) => {
+      console.log("Fetched capsules:", capsules.length);
+      // Add metadata to distinguish between created and joined capsules
+      const capsulesWithMetadata = capsules.map(capsule => {
+        try {
+          return {
+            ...capsule.toObject(),
+            isCreator: capsule.createdBy && capsule.createdBy._id && capsule.createdBy._id.toString() === userId,
+            isParticipant: capsule.participants.some(participant => 
+              participant && participant._id && participant._id.toString() === userId
+            )
+          };
+        } catch (error) {
+          console.error("Error processing capsule:", capsule._id, error);
+          return {
+            ...capsule.toObject(),
+            isCreator: false,
+            isParticipant: false
+          };
+        }
+      });
+      res.json(capsulesWithMetadata);
+    })
     .catch((err) => {
       console.error("Fetch capsules: Error fetching capsules:", err);
       res.status(500).json({ error: err.message });
@@ -106,8 +127,8 @@ router.get("/capsules/:id", (req, res) => {
       // If user is authenticated, use their ID for access control
       if (userId) {
         if (!canSeeCapsule(capsule, userId)) {
-          const { unlockedDate, isLocked } = capsule;
-          return res.status(200).json({ _id: capsuleId, isLocked, unlockedDate });
+          const { unlockedDate, isLocked, createdBy } = capsule;
+          return res.status(200).json({ _id: capsuleId, isLocked, unlockedDate, createdBy });
         }
       } else {
         // For unlocked capsules, check if they're public
@@ -131,7 +152,6 @@ router.get("/public", (req, res) => {
   TimeCapsule.find({
     isPublic: true,
     isLocked: true,
-    unlockedDate: { $lte: now },
   })
     .sort({ unlockedDate: -1 })
     .then((capsules) => res.json(capsules))
@@ -329,6 +349,98 @@ router.post("/trigger-unlocks", async (req, res) => {
     console.error("Trigger unlocks: Error triggering unlocks:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// POST /api/capsules/:id/join - join a capsule via sharing link
+router.post("/capsules/:id/join", isAuthenticated, (req, res) => {
+  const { id: capsuleId } = req.params;
+  const userId = req.payload._id;
+
+  if (!capsuleId || !mongoose.Types.ObjectId.isValid(capsuleId)) {
+    return res.status(400).json({ error: "Capsule id is invalid" });
+  }
+
+  TimeCapsule.findById(capsuleId)
+    .then((capsule) => {
+      if (!capsule) {
+        return res.status(404).json({ message: "Capsule not found" });
+      }
+
+      // Check if user is already a participant
+      if (capsule.participants.includes(userId)) {
+        return res.status(409).json({ message: "User is already a participant in this capsule" });
+      }
+
+      // Check if user is the creator
+      if (capsule.createdBy.toString() === userId) {
+        return res.status(409).json({ message: "User is the creator of this capsule" });
+      }
+
+      // Add user to participants
+      return TimeCapsule.findByIdAndUpdate(
+        capsuleId,
+        { $addToSet: { participants: userId } },
+        { new: true }
+      ).populate("createdBy", "username").populate("participants", "username");
+    })
+    .then((updatedCapsule) => {
+      if (updatedCapsule) {
+        res.json({ 
+          message: "Successfully joined capsule", 
+          capsule: updatedCapsule 
+        });
+      }
+    })
+    .catch((err) => {
+      console.error("Join capsule: Error joining capsule:", err);
+      res.status(500).json({ error: "Failed to join capsule" });
+    });
+});
+
+// POST /api/capsules/:id/leave - leave a joined capsule
+router.post("/capsules/:id/leave", isAuthenticated, (req, res) => {
+  const { id: capsuleId } = req.params;
+  const userId = req.payload._id;
+
+  if (!capsuleId || !mongoose.Types.ObjectId.isValid(capsuleId)) {
+    return res.status(400).json({ error: "Capsule id is invalid" });
+  }
+
+  TimeCapsule.findById(capsuleId)
+    .then((capsule) => {
+      if (!capsule) {
+        return res.status(404).json({ message: "Capsule not found" });
+      }
+
+      // Check if user is the creator
+      if (capsule.createdBy.toString() === userId) {
+        return res.status(403).json({ message: "Creator cannot leave their own capsule" });
+      }
+
+      // Check if user is a participant
+      if (!capsule.participants.includes(userId)) {
+        return res.status(404).json({ message: "User is not a participant in this capsule" });
+      }
+
+      // Remove user from participants
+      return TimeCapsule.findByIdAndUpdate(
+        capsuleId,
+        { $pull: { participants: userId } },
+        { new: true }
+      ).populate("createdBy", "username").populate("participants", "username");
+    })
+    .then((updatedCapsule) => {
+      if (updatedCapsule) {
+        res.json({ 
+          message: "Successfully left capsule", 
+          capsule: updatedCapsule 
+        });
+      }
+    })
+    .catch((err) => {
+      console.error("Leave capsule: Error leaving capsule:", err);
+      res.status(500).json({ error: "Failed to leave capsule" });
+    });
 });
 
 module.exports = router;
